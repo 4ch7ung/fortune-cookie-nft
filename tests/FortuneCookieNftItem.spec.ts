@@ -1,9 +1,11 @@
-import {Cell, CellMessage, CommonMessageInfo, ExternalMessage, InternalMessage, toNano} from "ton";
-import {randomAddress} from "../../utils/randomAddress";
-import {NftItemData, NftSingleData, OperationCodes, Queries} from "./NftItem.data";
-import {NftItemLocal} from "./NftItemLocal";
-import {decodeOffChainContent} from "../../nft-content/nftContent";
-import {SendMsgAction} from "ton-contract-executor";
+import { Cell, CommonMessageInfo, toNano } from "@ton/core";
+import { FortuneCookieNftItemData, OperationCodes, Queries } from "../wrappers/FortuneCookieNftItem.data";
+import { FortuneCookieNftItem } from "../wrappers/FortuneCookieNftItem";
+import { decodeOffChainContent } from "../utils/nftContentUtils";
+import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
+import { FortuneCookieNftCollection } from '../wrappers/FortuneCookieNftCollection';
+import '@ton/test-utils';
+import { compile } from '@ton/blueprint';
 
 const OWNER_ADDRESS = randomAddress()
 const COLLECTION_ADDRESS = randomAddress()

@@ -4,7 +4,9 @@
     "scripts": {
         "start": "blueprint run",
         "build": "blueprint build",
-        "test": "jest --verbose"
+        "test": "jest --verbose",
+        "deploy:testnet": "TESTNET=true blueprint deploy --network testnet",
+        "deploy:mainnet": "blueprint deploy --network mainnet"
     },
     "devDependencies": {
         "@ton/blueprint": "^0.21.0",

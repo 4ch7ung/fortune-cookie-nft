@@ -1,4 +1,4 @@
-import { Address, beginCell, Cell, contractAddress, Dictionary, Slice, StateInit, storeStateInit } from "@ton/core";
+import { Address, beginCell, Cell, Dictionary, Slice, storeStateInit } from "@ton/core";
 import { encodeOffChainContent } from "../utils/nftContentUtils";
 
 export type RoyaltyParams = {
@@ -117,9 +117,9 @@ export const Queries = {
             throw new Error('Too long list');
         }
 
-        let dict = Dictionary.empty();
+        let dict: Dictionary<number, Cell> = Dictionary.empty();
 
-        const itemsFactory = (item: FortuneCookieCollectionMintItemInput): Slice => {
+        const itemsFactory = (item: FortuneCookieCollectionMintItemInput): Cell => {
             let itemContent = beginCell()
                 .storeBuffer(Buffer.from(item.content))
                 .endCell();
@@ -131,7 +131,7 @@ export const Queries = {
                 .storeRef(itemContent)
                 .endCell();
 
-            return nftItemMessage.asSlice();
+            return nftItemMessage;
         }
 
         for (let item of params.items) {
@@ -141,7 +141,7 @@ export const Queries = {
         let msgBody = beginCell()
             .storeUint(OperationCodes.BatchMint, 32)
             .storeUint(params.queryId || 0, 64)
-            .storeDict(dict);
+            .storeDict(dict, Dictionary.Keys.Int(32), Dictionary.Values.Cell());
 
         return msgBody.endCell();
     },

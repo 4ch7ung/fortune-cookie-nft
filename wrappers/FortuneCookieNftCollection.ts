@@ -10,7 +10,7 @@ export class FortuneCookieNftCollection implements Contract {
         return new FortuneCookieNftCollection(address);
     }
 
-    static async createFromConfig(config: FortuneCookieNftCollectionData, code: Cell, workchain = 0) {
+    static createFromConfig(config: FortuneCookieNftCollectionData, code: Cell, workchain = 0) {
         const { stateInit } = buildNftCollectionStateInit(config, code);
         return new FortuneCookieNftCollection(contractAddress(workchain, stateInit), stateInit);
     }
@@ -62,6 +62,12 @@ export class FortuneCookieNftCollection implements Contract {
         ])
 
         return decodeOffChainContent(stack.readCell())
+    }
+
+    // Test methods
+
+    async sendExternalMessage(provider: ContractProvider) {
+        return await provider.external(beginCell().endCell());
     }
 
     //
