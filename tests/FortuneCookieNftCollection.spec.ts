@@ -1,5 +1,5 @@
 import { Blockchain, BlockchainTransaction, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Address, Cell, CommonMessageInfoInternal, beginCell, contractAddress, toNano } from '@ton/core';
+import { Address, Cell, CommonMessageInfoInternal, Dictionary, beginCell, contractAddress, toNano } from '@ton/core';
 import { FortuneCookieNftCollection } from '../wrappers/FortuneCookieNftCollection';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
@@ -189,7 +189,7 @@ describe('FortuneCookieNftCollection', () => {
         expect(initTransaction?.inMessage?.init?.data ?? Cell.EMPTY).toEqualCell(nftItemData);  
     });
     
-    it('should batch deploy nft\'s', async () => {
+    it('should batch deploy nfts', async () => {
         
         // given 
         

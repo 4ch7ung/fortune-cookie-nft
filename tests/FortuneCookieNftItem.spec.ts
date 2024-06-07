@@ -1,10 +1,7 @@
 import { Address, Cell, toNano } from "@ton/core";
-import { Queries as CollectionQueries, FortuneCookieCollectionMintItemInput, FortuneCookieNftCollectionData } from "../wrappers/FortuneCookieNftCollection.data";
-import { OperationCodes, Queries as ItemQueries } from "../wrappers/FortuneCookieNftItem.data";
+import { FortuneCookieCollectionMintItemInput } from "../wrappers/FortuneCookieNftCollection.data";
 import { FortuneCookieNftItem } from "../wrappers/FortuneCookieNftItem";
-import { decodeOffChainContent } from "../utils/nftContentUtils";
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { FortuneCookieNftCollection } from '../wrappers/FortuneCookieNftCollection';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 
@@ -21,6 +18,10 @@ const defaultItemConfig = (ownerAddress: Address, collectionAddress: Address) =>
         content: 'testA.json',
     };
 };
+
+enum OperationCodes {
+    getStaticDataResponse = 0x8b771735
+}
 
 enum Errors {
     NOT_OWNER = 401,

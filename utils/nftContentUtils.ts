@@ -3,21 +3,21 @@ import { Cell, beginCell } from "@ton/core";
 const OFF_CHAIN_CONTENT_PREFIX = 0x01
 
 export function flattenSnakeCell(cell: Cell) {
-    let c: Cell|null = cell
+    let currentCell: Cell | null = cell
 
-    let res = Buffer.alloc(0)
+    let result = Buffer.alloc(0)
 
-    while (c) {
-        let cs = c.beginParse()
+    while (currentCell) {
+        let cs = currentCell.beginParse()
         if (cs.remainingBits % 8 !== 0) {
             throw Error('Number remaining of bits is not multiply of 8');
         }
         let data = cs.loadBuffer(cs.remainingBits / 8)
-        res = Buffer.concat([res, data])
-        c = c.refs[0]
+        result = Buffer.concat([result, data])
+        currentCell = currentCell.refs[0]
     }
 
-    return res
+    return result
 }
 
 function bufferToChunks(buff: Buffer, chunkSize: number) {
@@ -29,24 +29,37 @@ function bufferToChunks(buff: Buffer, chunkSize: number) {
     return chunks
 }
 
-export function makeSnakeCell(data: Buffer) {
-    let chunks = bufferToChunks(data, 127);
-    let rootCell = beginCell();
-    let curCell = rootCell;
+function _snakeCell(chunks: Buffer[]): Cell | null {
+    const thisChunk = chunks.pop();
+    if (!thisChunk) {
+        return null;
+    }
 
-    for (let i = 0; i < chunks.length; i++) {
-        let chunk = chunks[i];
+    const thisCell = beginCell()
+        .storeBuffer(thisChunk);
 
-        curCell.storeBuffer(chunk);
-
-        if (chunks[i+1]) {
-            let nextCell = beginCell();
-            curCell.storeRef(nextCell);
-            curCell = nextCell
+    if (chunks.length > 0) {
+        const innerCell = _snakeCell(chunks);
+        if (innerCell) {
+            thisCell.storeRef(innerCell);
         }
     }
 
-    return rootCell.endCell();
+    return thisCell.endCell();
+}
+
+export function makeSnakeCell(data: Buffer) {
+    let chunks = bufferToChunks(data, 127).reverse();
+    
+    if (chunks.length === 0) {
+        return beginCell().endCell(); // practically impossible
+    }
+
+    let rootCell = _snakeCell(chunks);
+    if (!rootCell) {
+        throw new Error('Failed to create snake cell');
+    }
+    return rootCell;
 }
 
 export function encodeOffChainContent(content: string) {

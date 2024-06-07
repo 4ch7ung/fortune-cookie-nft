@@ -1,4 +1,4 @@
-import { Address, beginCell, Cell, Dictionary, Slice, storeStateInit } from "@ton/core";
+import { Address, beginCell, BitString, Cell, Dictionary, Slice, storeStateInit } from "@ton/core";
 import { encodeOffChainContent } from "../utils/nftContentUtils";
 
 export type RoyaltyParams = {
@@ -120,18 +120,23 @@ export const Queries = {
         let dict: Dictionary<number, Cell> = Dictionary.empty();
 
         const itemsFactory = (item: FortuneCookieCollectionMintItemInput): Cell => {
-            let itemContent = beginCell()
+            const itemContent = beginCell()
                 .storeBuffer(Buffer.from(item.content))
                 .endCell();
 
-            let nftItemMessage = beginCell()
+            const nftItemMessage = beginCell()
                 .storeAddress(item.ownerAddress)
                 .storeUint(item.lowerBound, 32)
                 .storeUint(item.upperBound, 32)
                 .storeRef(itemContent)
                 .endCell();
 
-            return nftItemMessage;
+            const result = beginCell()
+                .storeCoins(item.passAmount)
+                .storeRef(nftItemMessage)
+                .endCell();
+
+            return result;
         }
 
         for (let item of params.items) {
@@ -141,7 +146,7 @@ export const Queries = {
         let msgBody = beginCell()
             .storeUint(OperationCodes.BatchMint, 32)
             .storeUint(params.queryId || 0, 64)
-            .storeDict(dict, Dictionary.Keys.Int(32), Dictionary.Values.Cell());
+            .storeDict(dict, Dictionary.Keys.Uint(64), Dictionary.Values.Cell());
 
         return msgBody.endCell();
     },

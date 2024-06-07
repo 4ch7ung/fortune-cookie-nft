@@ -135,7 +135,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
       int counter = 0;
       cell deploy_list = in_msg_body~load_ref();
       do {
-        var (item_index, item, f?) = deploy_list~udict::delete_get_min(64);
+        var (item_index, item_cell, f?) = deploy_list~udict::delete_get_min(64);
         if (f?) {
           counter += 1;
           if (counter >= 250) { ;; Limit due to limits of action list size
@@ -143,8 +143,9 @@ slice calculate_nft_item_address(int wc, cell state_init) {
           }
           throw_unless(err::index_out_of_range + counter + 1, item_index <= next_item_index);
 
+          var item = item_cell~load_ref().begin_parse();
           int value = item~load_coins();
-
+          
           cell item_init_message = item~load_ref();
           slice nm = item_init_message.begin_parse();
           nm~load_msg_addr(); ;; ignore the address
