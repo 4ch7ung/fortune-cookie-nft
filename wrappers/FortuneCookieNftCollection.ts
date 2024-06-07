@@ -3,6 +3,10 @@ import { decodeOffChainContent } from '../utils/nftContentUtils';
 import { RoyaltyParams, FortuneCookieNftCollectionData, FortuneCookieCollectionMintItemInput, Queries, buildNftCollectionStateInit } from './FortuneCookieNftCollection.data';
 
 
+const nftMinStorage = 0.05;
+const gasPerItem = 0.015;
+        
+
 export class FortuneCookieNftCollection implements Contract {
     constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {}
 
@@ -75,15 +79,15 @@ export class FortuneCookieNftCollection implements Contract {
     //
 
     async sendDeployNewNft(
-        provider: ContractProvider, 
-        sender: Sender, 
-        value: bigint, 
+        provider: ContractProvider,
+        sender: Sender,
         params: { queryId?: number, itemInput: FortuneCookieCollectionMintItemInput }
     ) {
+        const nftStorage = params.itemInput.passAmount ?? toNano(nftMinStorage);
         let msgBody = Queries.mint(params)
         
         return await provider.internal(sender, {
-            value: value,
+            value: nftStorage + toNano(gasPerItem),
             bounce: false,
             body: msgBody
         });
@@ -92,9 +96,9 @@ export class FortuneCookieNftCollection implements Contract {
     async sendBatchDeployNft(
         provider: ContractProvider,
         sender: Sender,
-        value: bigint, 
         params: { queryId?: number, items: FortuneCookieCollectionMintItemInput[] }
     ) {
+        const value = toNano((nftMinStorage + gasPerItem) * params.items.length);
         let msgBody = Queries.batchMint(params)
 
         return await provider.internal(sender, {

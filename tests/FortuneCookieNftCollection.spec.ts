@@ -134,7 +134,7 @@ describe('FortuneCookieNftCollection', () => {
         // given
         
         const itemIndex = 1;
-        const value = toNano(1);
+        const passAmount = toNano(0.5);
         // Basic nft item data
         const nftItemData = beginCell()
             .storeUint(itemIndex, 64)
@@ -146,12 +146,11 @@ describe('FortuneCookieNftCollection', () => {
         // when
         
         const res = await collection.sendDeployNewNft(
-            owner.getSender(), 
-            value, 
+            owner.getSender(),
             {
                 queryId: 0,
                 itemInput: {
-                    passAmount: toNano(0.5),
+                    passAmount: passAmount,
                     index: itemIndex,
                     ownerAddress: owner.address,
                     lowerBound: 0,
@@ -167,7 +166,6 @@ describe('FortuneCookieNftCollection', () => {
             from: owner.address,
             to: collection.address,
             deploy: false,
-            value: value,
             success: true,
         });
 
@@ -175,6 +173,7 @@ describe('FortuneCookieNftCollection', () => {
             from: collection.address,
             to: nftItemAddress,
             deploy: true,
+            value: passAmount,
             success: true,
         });
         
@@ -225,8 +224,7 @@ describe('FortuneCookieNftCollection', () => {
         // when
         
         const res = await collection.sendBatchDeployNft(
-            owner.getSender(), 
-            toNano(1), 
+            owner.getSender(),
             { items }
         )
 
@@ -279,8 +277,7 @@ describe('FortuneCookieNftCollection', () => {
         // when
         
         const res = await collection.sendDeployNewNft(
-            randomAddress.getSender(), 
-            toNano(1), 
+            randomAddress.getSender(),
             {
                 queryId: 0,
                 itemInput: {
@@ -362,15 +359,6 @@ describe('FortuneCookieNftCollection', () => {
             deploy: false,
             success: true,
         });
-
-        // console.log(res.transactions.map((v, i, a) => { return { 
-        //     address: v.address,
-        //     inMessage: v.inMessage,
-        //     events: v.events,
-        //     inMessageSrc: v.inMessage?.info.src,
-        //     inMessageDest: v.inMessage?.info.dest,
-        //     inMessageInfoType: v.inMessage?.info.type,
-        // } }));
 
         let responseMessage = res.transactions.find((v, i, a) => { 
             return v.inMessage?.info.type == 'internal' && v.inMessage?.info.src.equals(collection.address);

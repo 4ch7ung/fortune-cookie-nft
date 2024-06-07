@@ -1,4 +1,4 @@
-import { Address, beginCell, BitString, Cell, Dictionary, Slice, storeStateInit } from "@ton/core";
+import { Address, beginCell, BitString, Cell, Dictionary, Slice, storeStateInit, toNano } from "@ton/core";
 import { encodeOffChainContent } from "../utils/nftContentUtils";
 
 export type RoyaltyParams = {
@@ -15,6 +15,8 @@ export type FortuneCookieNftCollectionData = {
     nftItemCode: Cell
     royaltyParams: RoyaltyParams
 }
+
+const nftMinStorage = 0.05;
 
 // default#_ royalty_factor:uint16 royalty_base:uint16 royalty_address:MsgAddress = RoyaltyParams;
 // storage#_ owner_address:MsgAddress next_item_index:uint64
@@ -81,7 +83,7 @@ export const OperationCodes = {
 }
 
 export type FortuneCookieCollectionMintItemInput = {
-    passAmount: bigint
+    passAmount?: bigint
     index: number
     ownerAddress: Address
     lowerBound: number
@@ -95,7 +97,7 @@ export const Queries = {
             .storeUint(OperationCodes.Mint, 32)
             .storeUint(params.queryId || 0, 64)
             .storeUint(params.itemInput.index, 64)
-            .storeCoins(params.itemInput.passAmount);
+            .storeCoins(params.itemInput.passAmount ?? toNano(nftMinStorage));
 
         let itemContent = beginCell()
             .storeBuffer(Buffer.from(params.itemInput.content))
@@ -131,12 +133,7 @@ export const Queries = {
                 .storeRef(itemContent)
                 .endCell();
 
-            const result = beginCell()
-                .storeCoins(item.passAmount)
-                .storeRef(nftItemMessage)
-                .endCell();
-
-            return result;
+            return nftItemMessage;
         }
 
         for (let item of params.items) {
@@ -146,7 +143,18 @@ export const Queries = {
         let msgBody = beginCell()
             .storeUint(OperationCodes.BatchMint, 32)
             .storeUint(params.queryId || 0, 64)
-            .storeDict(dict, Dictionary.Keys.Uint(64), Dictionary.Values.Cell());
+            .storeDict(dict, Dictionary.Keys.Uint(64), {
+                serialize: (src, builder) => {
+                    builder.storeCoins(toNano(nftMinStorage));
+                    builder.storeRef(src);
+                },
+                parse: (src) => {
+                    return beginCell()
+                        .storeCoins(src.loadCoins())
+                        .storeRef(src.loadRef())
+                        .endCell();
+                }
+            });
 
         return msgBody.endCell();
     },

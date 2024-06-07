@@ -110,7 +110,8 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 
     throw_unless(err::not_owner, equal_slices(sender_address, owner_address));
 
-
+    ;; mint#00000001 query_id:uint64 item_index:uint64 value:Grams nft_init_message:^NftInitMessage = MintPayload;
+    ;; nft_init_message#_ owner_addr:MsgAddress lower_bound:uint32 upper_bound:uint32 = NftInitMessage;
     if (op == 1) { ;; deploy new nft
       int item_index = in_msg_body~load_uint(64);
       throw_unless(err::index_out_of_range, item_index <= next_item_index);
@@ -131,11 +132,15 @@ slice calculate_nft_item_address(int wc, cell state_init) {
       }
       return ();
     }
+    ;; batch#00000002 deploy_list:^(Hashmap 64 NftBatchInitMessage) = BatchPayload;
+    ;; nft_batch_init_message#_ value:Grams nft_init_message:^NftInitMessage = NftBatchInitMessage;
+    ;;
+    ;; the keys of a hashmap are item indexes
     if (op == 2) { ;; batch deploy of new nfts
       int counter = 0;
       cell deploy_list = in_msg_body~load_ref();
       do {
-        var (item_index, item_cell, f?) = deploy_list~udict::delete_get_min(64);
+        var (item_index, item, f?) = deploy_list~udict::delete_get_min(64);
         if (f?) {
           counter += 1;
           if (counter >= 250) { ;; Limit due to limits of action list size
@@ -143,7 +148,6 @@ slice calculate_nft_item_address(int wc, cell state_init) {
           }
           throw_unless(err::index_out_of_range + counter + 1, item_index <= next_item_index);
 
-          var item = item_cell~load_ref().begin_parse();
           int value = item~load_coins();
           
           cell item_init_message = item~load_ref();
