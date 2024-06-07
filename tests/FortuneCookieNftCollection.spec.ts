@@ -6,7 +6,8 @@ import { compile } from '@ton/blueprint';
 import { FortuneCookieCollectionMintItemInput, FortuneCookieNftCollectionData, OperationCodes } from '../wrappers/FortuneCookieNftCollection.data';
 import { pseudoRandomBytes } from 'crypto';
 
-function defaultConfig(ownerAddress: Address, royaltyAddress: Address, nftItemCode: Cell): FortuneCookieNftCollectionData {
+type CollectionConfigFactory = (ownerAddress: Address, royaltyAddress: Address, nftItemCode: Cell) => FortuneCookieNftCollectionData
+const defaultConfig: CollectionConfigFactory = (ownerAddress, royaltyAddress, nftItemCode) => {
     return {
         ownerAddress,
         nextItemIndex: 777,
@@ -18,8 +19,8 @@ function defaultConfig(ownerAddress: Address, royaltyAddress: Address, nftItemCo
             royaltyBase: 200,
             royaltyAddress
         }
-    }
-}
+    };
+};
 
 describe('FortuneCookieNftCollection', () => {
     let collectionCode: Cell;

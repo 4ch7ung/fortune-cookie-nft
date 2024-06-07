@@ -1,7 +1,7 @@
 import { Address, Cell, Contract, ContractProvider, SendMode, Sender, beginCell, contractAddress, toNano } from "@ton/core";
-import { buildFortuneCookieNftItemDataCell, FortuneCookieNftItemData } from "./FortuneCookieNftItem.data";
 import { decodeOffChainContent } from "../utils/nftContentUtils";
 import { Queries } from "./FortuneCookieNftItem.data";
+import { FortuneCookieCollectionMintItemInput } from "./FortuneCookieNftCollection.data";
 
 export class FortuneCookieNftItem implements Contract {
   constructor(
@@ -9,19 +9,38 @@ export class FortuneCookieNftItem implements Contract {
     readonly init?: { code: Cell, data: Cell }
   ) {}
 
-  static createFromConfig(config: FortuneCookieNftItemData, code: Cell, workchain = 0) {
-    const data = buildFortuneCookieNftItemDataCell(config);
+  static createFromConfig(index: number, collectionAddress: Address, code: Cell, workchain = 0) {
+    const data = beginCell()
+      .storeUint(index, 64)
+      .storeAddress(collectionAddress)
+      .endCell();
     const init = { code, data };
     const address = contractAddress(workchain, init);
     
     return new FortuneCookieNftItem(address, init);
   }
 
-  async sendDeploy(provider: ContractProvider, sender: Sender, value: bigint) {
+  // used to top up the contract balance
+  async sendTopUp(provider: ContractProvider, sender: Sender, value: bigint) {
+    return await provider.internal(sender, {
+      value,
+      body: beginCell().endCell(), 
+    });
+  }
+
+  // accepts messages only from the collection contract
+  async sendDeploy(
+    provider: ContractProvider, 
+    sender: Sender,
+    value: bigint,
+    input: FortuneCookieCollectionMintItemInput
+  ) {
+    const msgBody = Queries.initialize(input);
+
     return await provider.internal(sender, {
       value,
       sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body: beginCell().endCell(),
+      body: msgBody,
     });
   }
 
@@ -32,7 +51,7 @@ export class FortuneCookieNftItem implements Contract {
   async getNftData(provider: ContractProvider) {
     const { stack } = await provider.get('get_nft_data', []);
 
-    const isInitialized = stack.readBoolean();
+    const isInitialized = stack.readNumber() == -1;
     const index = stack.readNumber();
     const collectionAddress = stack.readAddress();
     if(!isInitialized) {
@@ -65,7 +84,14 @@ export class FortuneCookieNftItem implements Contract {
   // Internal messages
   //
 
-  async sendTransfer(provider: ContractProvider, sender: Sender, newOwner: Address, responseTo?: Address, forwardAmount?: bigint, forwardPayload?: Cell) {
+  async sendTransfer(
+    provider: ContractProvider,
+    sender: Sender,
+    newOwner: Address,
+    responseTo?: Address,
+    forwardAmount?: bigint,
+    forwardPayload?: Cell
+  ) {
     const msgBody = Queries.transfer({ newOwner, responseTo, forwardAmount, forwardPayload });
 
     return await provider.internal(sender, {
@@ -83,20 +109,15 @@ export class FortuneCookieNftItem implements Contract {
     });
   }
 
-  async sendGetRoyaltyParams(provider: ContractProvider, sender: Sender) {
-    const msgBody = Queries.getRoyaltyParams({});
+  async sendGetStaticData(
+    provider: ContractProvider, 
+    sender: Sender,
+    queryId?: number
+  ) {
+    const msgBody = Queries.getStaticData({ queryId });
 
     return await provider.internal(sender, {
-      value: toNano('0.05'),
-      body: msgBody
-    });
-  }
-
-  async sendGetStaticData(provider: ContractProvider, sender: Sender) {
-    const msgBody = Queries.getStaticData({});
-
-    return await provider.internal(sender, {
-      value: toNano('0.05'),
+      value: toNano('0.1'),
       body: msgBody
     });
   }

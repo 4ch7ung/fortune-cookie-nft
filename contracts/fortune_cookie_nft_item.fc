@@ -209,6 +209,7 @@ cell content_for_unsealed_value(cell content, int unsealed_value) inline {
   }
 
   if (op == op::unseal()) {
+    throw_unless(err::not_owner, equal_slices(owner_address, sender_address));
     slice bv = bounds_and_value.begin_parse();
     int lower_bound = bv~load_uint(32);
     int upper_bound = bv~load_uint(32);
@@ -234,6 +235,7 @@ cell content_for_unsealed_value(cell content, int unsealed_value) inline {
         new_unsealed_value
       ),
       new_content);
+    return();
   }
   throw(err::unknown_op);
 }

@@ -1,5 +1,6 @@
-import { Cell, CommonMessageInfo, toNano } from "@ton/core";
-import { FortuneCookieNftItemData, OperationCodes, Queries } from "../wrappers/FortuneCookieNftItem.data";
+import { Address, Cell, toNano } from "@ton/core";
+import { Queries as CollectionQueries, FortuneCookieCollectionMintItemInput, FortuneCookieNftCollectionData } from "../wrappers/FortuneCookieNftCollection.data";
+import { OperationCodes, Queries as ItemQueries } from "../wrappers/FortuneCookieNftItem.data";
 import { FortuneCookieNftItem } from "../wrappers/FortuneCookieNftItem";
 import { decodeOffChainContent } from "../utils/nftContentUtils";
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
@@ -7,251 +8,349 @@ import { FortuneCookieNftCollection } from '../wrappers/FortuneCookieNftCollecti
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 
-const OWNER_ADDRESS = randomAddress()
-const COLLECTION_ADDRESS = randomAddress()
-const ROYALTY_ADDRESS = randomAddress()
-const EDITOR_ADDRESS = randomAddress()
 
-const defaultConfig: NftItemData = {
-    index: 777,
-    collectionAddress: COLLECTION_ADDRESS,
-    ownerAddress: OWNER_ADDRESS,
-    content: 'test',
+const defaultItemConfig = (ownerAddress: Address, collectionAddress: Address) => {
+    return {
+        index: 777,
+        passAmount: toNano(0.05),
+        collectionAddress,
+        ownerAddress,
+        lowerBound: 145,
+        upperBound: 1024,
+        unsealedValue: null,
+        content: 'testA.json',
+    };
+};
+
+enum Errors {
+    NOT_OWNER = 401,
+    INSUFFICIENT_BALANCE = 402,
+    NOT_COLLECTION_ADDRESS = 405,
+    ALREADY_UNSEALED = 406,
+    UNKNOWN_OP = 0xffff
 }
 
-const singleConfig: NftSingleData = {
-    ownerAddress: OWNER_ADDRESS,
-    editorAddress: EDITOR_ADDRESS,
-    content: 'test_content',
-    royaltyParams: {
-        royaltyFactor: 100,
-        royaltyBase: 200,
-        royaltyAddress: ROYALTY_ADDRESS
-    }
-}
+describe('FortuneCookieNftItem', () => {
 
-describe('nft item smc', () => {
-    it('should ignore external messages', async () => {
-        let nft = await NftItemLocal.createFromConfig(defaultConfig)
+    let itemCode: Cell;
+    
+    beforeAll(async () => {
+        itemCode = await compile('FortuneCookieNftItem');
+    });
+    
+    let blockchain: Blockchain;
+    let deployer: SandboxContract<TreasuryContract>;
+    let owner: SandboxContract<TreasuryContract>;
+    let fakeCollection: SandboxContract<TreasuryContract>;
+    let nftItem: SandboxContract<FortuneCookieNftItem>;
+    
+    let nftItemConfig: FortuneCookieCollectionMintItemInput & { collectionAddress: Address, unsealedValue: number | null };
+    
+    beforeEach(async () => {
+        blockchain = await Blockchain.create();
+        
+        deployer = await blockchain.treasury('deployer');
+        owner = await blockchain.treasury('owner');
+        fakeCollection = await blockchain.treasury('collection');
+        
+        nftItemConfig = defaultItemConfig(owner.address, fakeCollection.address);
+        
+        nftItem = blockchain.openContract(
+            FortuneCookieNftItem.createFromConfig(nftItemConfig.index, nftItemConfig.collectionAddress, itemCode)
+        );
+        
+        const deployResult = await nftItem.sendDeploy(
+            fakeCollection.getSender(), 
+            toNano(0.06),
+            nftItemConfig
+        );
 
-        let res = await nft.contract.sendExternalMessage(new ExternalMessage({
-            to: nft.address,
-            from: OWNER_ADDRESS,
-            body: new CommonMessageInfo({
-                body: new CellMessage(new Cell())
-            })
-        }))
+        expect(deployResult.transactions).toHaveTransaction({
+            from: fakeCollection.address,
+            to: nftItem.address,
+            deploy: true,
+            success: true,
+        });
+    });
 
-        expect(res.exit_code).not.toEqual(0)
-    })
+    it('should return item data (initialized)', async () => {
+        // when
 
-    it('should return item data', async () => {
-        let nft = await NftItemLocal.createFromConfig(defaultConfig)
-        let res = await nft.getNftData()
-        if (!res.isInitialized) {
-            throw new Error()
+        const result = await nftItem.getNftData();
+
+        // then
+
+        if (!result.initialized) {
+            throw new Error();
         }
-        expect(res.isInitialized).toBe(true)
-        expect(res.index).toEqual(defaultConfig.index)
-        expect(res.collectionAddress!.toFriendly()).toEqual(defaultConfig.collectionAddress!.toFriendly())
-        expect(res.ownerAddress.toFriendly()).toEqual(defaultConfig.ownerAddress!.toFriendly())
-        expect(res.content).toEqual(defaultConfig.content)
-    })
+        expect(result.initialized).toBe(true);
+        expect(result.index).toEqual(nftItemConfig.index);
+        expect(result.collectionAddress).toEqualAddress(nftItemConfig.collectionAddress);
+        expect(result.ownerAddress).toEqualAddress(nftItemConfig.ownerAddress);
+        expect(result.content).toEqual(nftItemConfig.content);
+    });
 
-    it('should return editor', async () => {
-        let nft = await NftItemLocal.createFromConfig(defaultConfig)
-        let res = await nft.getEditor()
-        expect(res).toEqual(null)
-    })
+    it('should return item data (not initialized)', async () => {
+        
+        // given
+
+        nftItem = blockchain.openContract(
+            FortuneCookieNftItem.createFromConfig(nftItemConfig.index, deployer.address, itemCode)
+        );
+
+        const deployResult = await nftItem.sendTopUp(
+            deployer.getSender(), 
+            toNano(0.06)
+        );
+
+        // when
+
+        const result = await nftItem.getNftData();
+
+        // then
+
+        expect(result.initialized).toBe(false);
+        expect(result.index).toEqual(nftItemConfig.index);
+        expect(result.collectionAddress).toEqualAddress(deployer.address);
+        expect(result.ownerAddress).toBeUndefined();
+        expect(result.content).toBeUndefined();
+    });
+
+    it('should fail to do anything if not initialized', async () => {
+        
+        // given
+
+        nftItem = blockchain.openContract(
+            FortuneCookieNftItem.createFromConfig(nftItemConfig.index, deployer.address, itemCode)
+        );
+
+        const deployResult = await nftItem.sendTopUp(
+            deployer.getSender(), 
+            toNano(0.06)
+        );
+
+        // when
+
+        const sendResult = await nftItem.sendTransfer(
+            owner.getSender(), 
+            owner.address
+        );
+
+        const unsealResult = await nftItem.sendUnseal(
+            owner.getSender()
+        );
+
+        const sendResult2 = await nftItem.sendTransfer(
+            deployer.getSender(),
+            owner.address
+        );
+
+        // then
+
+        expect(sendResult.transactions).toHaveTransaction({
+            from: owner.address,
+            to: nftItem.address,
+            success: false,
+            exitCode: Errors.NOT_COLLECTION_ADDRESS,
+        });
+
+        expect(unsealResult.transactions).toHaveTransaction({
+            from: owner.address,
+            to: nftItem.address,
+            success: false,
+            exitCode: Errors.NOT_COLLECTION_ADDRESS,
+        });
+
+        // probably will fail to decode the message, maybe will have rubbish in data
+        // but anyway, it should not happen in real life
+        expect(sendResult2.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: nftItem.address,
+            success: false,
+            exitCode: 9, 
+        });
+    });
 
     it('should transfer', async () => {
-        let nft = await NftItemLocal.createFromConfig(defaultConfig)
-        let newOwner = randomAddress()
-        let res = await nft.contract.sendInternalMessage(new InternalMessage({
-            to: nft.address,
-            from: defaultConfig.ownerAddress,
-            value: toNano(1),
-            bounce: false,
-            body: new CommonMessageInfo({
-                body: new CellMessage(Queries.transfer({
-                    newOwner,
-                    forwardAmount: toNano('0.01'),
-                    responseTo: randomAddress()
-                }))
-            })
-        }))
+        
+        // given
 
-        expect(res.exit_code).toEqual(0)
+        const newOwner = await blockchain.treasury('newOwner');
 
-        let data = await nft.getNftData()
-        if (!data.isInitialized) {
-            throw new Error()
+        // when
+
+        const sendResult = await nftItem.sendTransfer(
+            owner.getSender(), 
+            newOwner.address
+        );
+
+        // then
+
+        expect(sendResult.transactions).toHaveTransaction({
+            from: owner.address,
+            to: nftItem.address,
+            success: true,
+        });
+
+        const data = await nftItem.getNftData();
+        if (!data.initialized) {
+            throw new Error();
         }
 
-        expect(data.ownerAddress.toFriendly()).toEqual(newOwner.toFriendly())
-    })
+        expect(data.ownerAddress).toEqualAddress(newOwner.address);
+    });
 
-    it('should transfer ownership', async () => {
-        let nft = await NftItemLocal.createFromConfig(defaultConfig)
-    })
-})
+    it('should not transfer when called from non-owner', async () => {
+        
+        // given
 
-describe('single nft', () => {
-    it('should return data', async () => {
-        let nft = await NftItemLocal.createSingle(singleConfig)
-        let res = await nft.getNftData()
-        if (!res.isInitialized) {
-            throw new Error()
-        }
-        expect(res.isInitialized).toBe(true)
-        expect(res.index).toEqual(0)
-        expect(res.collectionAddress).toEqual(null)
-        expect(res.ownerAddress.toFriendly()).toEqual(singleConfig.ownerAddress!.toFriendly())
-        expect(res.content).toEqual(singleConfig.content)
-    })
+        const newOwner = await blockchain.treasury('newOwner');
 
-    it('should return royalties', async () => {
-        let nft = await NftItemLocal.createSingle(singleConfig)
-        let royalties = await nft.getRoyaltyParams()
-        expect(royalties).not.toEqual(null)
-        expect(royalties!.royaltyBase).toEqual(singleConfig.royaltyParams.royaltyBase)
-        expect(royalties!.royaltyFactor).toEqual(singleConfig.royaltyParams.royaltyFactor)
-        expect(royalties!.royaltyAddress.toFriendly()).toEqual(singleConfig.royaltyParams.royaltyAddress.toFriendly())
-    })
+        // when
 
-    it('should return static data', async () => {
-        let nft = await NftItemLocal.createSingle(singleConfig)
-        let res = await nft.sendGetStaticData(randomAddress())
-        if (res.type !== 'success') {
-            throw new Error()
-        }
+        const sendResult = await nftItem.sendTransfer(
+            newOwner.getSender(), 
+            newOwner.address
+        );
 
-        let [responseMessage] = res.actionList as [SendMsgAction]
-        let response = responseMessage.message.body.beginParse()
+        // then
 
-        let op = response.readUintNumber(32)
-        let queryId = response.readUintNumber(64)
-        let index = response.readUintNumber(256)
-        let collectionAddress = response.readAddress()
+        expect(sendResult.transactions).toHaveTransaction({
+            from: newOwner.address,
+            to: nftItem.address,
+            success: false,
+            exitCode: Errors.NOT_OWNER,
+        });
+    });
 
-        expect(op).toEqual(OperationCodes.getStaticDataResponse)
-        expect(queryId).toEqual(0)
-        expect(index).toEqual(0)
-        expect(collectionAddress).toEqual(null)
-    })
+    it('should unseal', async () => {
+        
+        // given
 
-    it('should send royalty params', async () => {
-        let nft = await NftItemLocal.createSingle(singleConfig)
-        let sender = randomAddress()
-        let res = await nft.sendGetRoyaltyParams(sender)
+        const oldNumber = await nftItem.getLuckyValue();
+        
+        // when
 
-        expect(res.exit_code).toBe(0)
-        if (res.type !== 'success') {
-            throw new Error()
+        const sendResult = await nftItem.sendUnseal(
+            owner.getSender()
+        );
+
+        // then
+
+        expect(sendResult.transactions).toHaveTransaction({
+            from: owner.address,
+            to: nftItem.address,
+            success: true,
+        });
+
+        const newNumber = await nftItem.getLuckyValue();
+        
+        expect(oldNumber).toEqual(0);
+        expect(oldNumber).not.toEqual(newNumber);
+        expect(newNumber).toBeGreaterThanOrEqual(nftItemConfig.lowerBound);
+        expect(newNumber).toBeLessThanOrEqual(nftItemConfig.upperBound);
+        
+        const newExpectedContent = nftItemConfig.content.replace('A.json', newNumber.toString(10) + '.json')
+        
+        const data = await nftItem.getNftData();
+        if (!data.initialized) {
+            throw new Error();
         }
 
-        let [responseMessage] = res.actionList as [SendMsgAction]
-
-        expect(responseMessage.message.info.dest!.toFriendly()).toEqual(sender.toFriendly())
-        let response = responseMessage.message.body.beginParse()
-
-        let op = response.readUintNumber(32)
-        let queryId = response.readUintNumber(64)
-        let royaltyFactor = response.readUintNumber(16)
-        let royaltyBase = response.readUintNumber(16)
-        let royaltyAddress = response.readAddress()!
-
-        expect(op).toEqual(OperationCodes.GetRoyaltyParamsResponse)
-        expect(queryId).toEqual(0)
-        expect(royaltyFactor).toEqual(singleConfig.royaltyParams.royaltyFactor)
-        expect(royaltyBase).toEqual(singleConfig.royaltyParams.royaltyBase)
-        expect(royaltyAddress.toFriendly()).toEqual(singleConfig.royaltyParams.royaltyAddress.toFriendly())
+        expect(data.content).toEqual(newExpectedContent);
     })
 
-    it('should edit content', async () => {
-        let nft = await NftItemLocal.createSingle(singleConfig)
-        let sender = randomAddress()
+    it('should not unseal if already unsealed', async () => {
+        
+        // given
 
-        let royaltyAddress = randomAddress()
-        let res = await nft.sendEditContent(sender, {
-            content: 'new_content',
-            royaltyParams: {
-                royaltyFactor: 150,
-                royaltyBase: 220,
-                royaltyAddress
-            }
-        })
-        // should fail if sender is not owner
-        expect(res.exit_code).not.toEqual(0)
+        await nftItem.sendUnseal(owner.getSender());
+        
+        // when
 
-        res = await nft.sendEditContent(EDITOR_ADDRESS, {
-            content: 'new_content',
-            royaltyParams: {
-                royaltyFactor: 150,
-                royaltyBase: 220,
-                royaltyAddress
-            }
-        })
+        const sendResult = await nftItem.sendUnseal(
+            owner.getSender()
+        );
 
-        expect(res.exit_code).toBe(0)
-        if (res.type !== 'success') {
-            throw new Error()
-        }
+        // then
 
-        let data = await nft.getNftData()
-        if (!data.isInitialized) {
-            throw new Error()
-        }
-        expect(decodeOffChainContent(data.contentRaw)).toEqual('new_content')
-        let royalty = await nft.getRoyaltyParams()
-        expect(royalty).not.toEqual(null)
-        expect(royalty!.royaltyBase).toEqual(220)
-        expect(royalty!.royaltyFactor).toEqual(150)
-        expect(royalty!.royaltyAddress.toFriendly()).toEqual(royaltyAddress.toFriendly())
-    })
+        expect(sendResult.transactions).toHaveTransaction({
+            from: owner.address,
+            to: nftItem.address,
+            success: false,
+            exitCode: Errors.ALREADY_UNSEALED,
+        });
+    });
 
-    it('should return editor address', async () => {
-        let nft = await NftItemLocal.createSingle(singleConfig)
-        let editor = await nft.getEditor()
-        expect(editor!.toFriendly()).toEqual(singleConfig.editorAddress.toFriendly())
-    })
+    it('should not unseal from non-owner', async () => {
+        
+        // given
 
-    it('should transfer editorship', async () => {
-        let nft = await NftItemLocal.createSingle(singleConfig)
-        let newEditor = randomAddress()
-        let res = await nft.sendTransferEditorship(EDITOR_ADDRESS, {
-            newEditor,
-            responseTo: null,
-        })
-        expect(res.exit_code).toEqual(0)
-        let editorRes = await nft.getEditor()
-        expect(editorRes!.toFriendly()).toEqual(newEditor.toFriendly())
-    })
+        const newOwner = await blockchain.treasury('newOwner');
+        
+        // when
 
-    it('should transfer', async () => {
-        let nft = await NftItemLocal.createFromConfig(defaultConfig)
-        let newOwner = randomAddress()
-        let res = await nft.contract.sendInternalMessage(new InternalMessage({
-            to: nft.address,
-            from: defaultConfig.ownerAddress,
-            value: toNano(1),
-            bounce: false,
-            body: new CommonMessageInfo({
-                body: new CellMessage(Queries.transfer({
-                    newOwner,
-                    forwardAmount: toNano('0.01'),
-                    responseTo: randomAddress()
-                }))
-            })
-        }))
+        const sendResult = await nftItem.sendUnseal(
+            newOwner.getSender()
+        );
 
-        expect(res.exit_code).toEqual(0)
+        // then
 
-        let data = await nft.getNftData()
-        if (!data.isInitialized) {
-            throw new Error()
-        }
+        expect(sendResult.transactions).toHaveTransaction({
+            from: newOwner.address,
+            to: nftItem.address,
+            success: false,
+            exitCode: Errors.NOT_OWNER,
+        });
+    });
 
-        expect(data.ownerAddress.toFriendly()).toEqual(newOwner.toFriendly())
-    })
-})
+    it('should return static data to anyone', async () => {
+
+        // given
+
+        const sender = await blockchain.treasury('sender');
+        const queryId = 123;
+        
+        // when
+
+        const sendResult = await nftItem.sendGetStaticData(
+            sender.getSender(),
+            queryId
+        );
+
+        // then
+
+        expect(sendResult.transactions).toHaveTransaction({
+            from: sender.address,
+            to: nftItem.address,
+            success: true,
+        });
+
+        expect(sendResult.transactions).toHaveTransaction({
+            from: nftItem.address,
+            to: sender.address,
+            success: true,
+        });
+
+        let responseMessage = sendResult.transactions.find((v, i, a) => { 
+            return v.inMessage?.info.type == 'internal' && v.inMessage?.info.src.equals(nftItem.address);
+        });
+
+        expect(responseMessage).toBeDefined();
+        expect(responseMessage!.inMessage).toBeDefined();
+
+        responseMessage = responseMessage!;
+
+        const data = responseMessage.inMessage!.body.beginParse();
+
+        const op = data.loadUint(32);
+        const resQueryId = data.loadUint(64);
+        const index = data.loadUint(256);
+        const collectionAddress = data.loadAddress();
+
+        expect(op).toEqual(OperationCodes.getStaticDataResponse);
+        expect(resQueryId).toEqual(queryId);
+        expect(index).toEqual(nftItemConfig.index);
+        expect(collectionAddress).toEqualAddress(nftItemConfig.collectionAddress);
+    });
+});
