@@ -28,7 +28,7 @@ enum Errors {
     INSUFFICIENT_BALANCE = 402,
     NOT_COLLECTION_ADDRESS = 405,
     ALREADY_UNSEALED = 406,
-    UNKNOWN_OP = 0xffff
+    UNKNOWN_OP = 0xffff,
 }
 
 describe('FortuneCookieNftItem', () => {

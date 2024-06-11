@@ -1,5 +1,5 @@
-import { Blockchain, BlockchainTransaction, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Address, Cell, CommonMessageInfoInternal, Dictionary, beginCell, contractAddress, toNano } from '@ton/core';
+import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
+import { Address, Cell, CommonMessageInfoInternal, beginCell, contractAddress, toNano } from '@ton/core';
 import { FortuneCookieNftCollection } from '../wrappers/FortuneCookieNftCollection';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
@@ -18,7 +18,8 @@ const defaultConfig: CollectionConfigFactory = (ownerAddress, royaltyAddress, nf
             royaltyFactor: 100,
             royaltyBase: 200,
             royaltyAddress
-        }
+        },
+        minterAddress: ownerAddress
     };
 };
 

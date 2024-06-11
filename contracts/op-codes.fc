@@ -30,3 +30,5 @@ int op::take_excess() asm "0xd136d3b3 PUSHINT";
 ;; Fortune Cookie NFT values
 
 int op::unseal() asm "0xc35b85d1 PUSHINT"; ;; "unseal"c
+int op::change_minter() asm "0xb73b8ac5 PUSHINT"; ;; "change_minter"c
+int op::mint_next() asm "0x50932698 PUSHINT"; ;; "mint_next"c

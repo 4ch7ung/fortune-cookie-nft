@@ -5,7 +5,6 @@ import { RoyaltyParams, FortuneCookieNftCollectionData, FortuneCookieCollectionM
 
 const nftMinStorage = 0.05;
 const gasPerItem = 0.015;
-        
 
 export class FortuneCookieNftCollection implements Contract {
     constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {}

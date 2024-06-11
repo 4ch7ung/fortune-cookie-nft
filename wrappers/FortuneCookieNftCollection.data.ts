@@ -1,4 +1,4 @@
-import { Address, beginCell, BitString, Cell, Dictionary, Slice, storeStateInit, toNano } from "@ton/core";
+import { Address, beginCell, Cell, Dictionary, storeStateInit, toNano } from "@ton/core";
 import { encodeOffChainContent } from "../utils/nftContentUtils";
 
 export type RoyaltyParams = {
@@ -14,6 +14,7 @@ export type FortuneCookieNftCollectionData = {
     commonContent: string
     nftItemCode: Cell
     royaltyParams: RoyaltyParams
+    minterAddress: Address
 }
 
 const nftMinStorage = 0.05;
@@ -23,6 +24,7 @@ const nftMinStorage = 0.05;
 //           ^[collection_content:^Cell common_content:^Cell]
 //           nft_item_code:^Cell
 //           royalty_params:^RoyaltyParams
+//           minter_address:MsgAddress
 //           = Storage;
 
 export function buildNftCollectionDataCell(data: FortuneCookieNftCollectionData) {
@@ -52,6 +54,7 @@ export function buildNftCollectionDataCell(data: FortuneCookieNftCollectionData)
         .endCell();
 
     dataCell.storeRef(royaltyCell)
+    dataCell.storeAddress(data.minterAddress);
 
     return dataCell.endCell();
 }

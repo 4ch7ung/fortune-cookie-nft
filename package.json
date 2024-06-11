@@ -5,8 +5,8 @@
         "start": "blueprint run",
         "build": "blueprint build",
         "test": "jest --verbose",
-        "deploy:testnet": "TESTNET=true blueprint deploy --network testnet",
-        "deploy:mainnet": "blueprint deploy --network mainnet"
+        "deploy:testnet": "TESTNET=true blueprint run deploy --testnet",
+        "deploy:mainnet": "blueprint run deploy --mainnet"
     },
     "devDependencies": {
         "@ton/blueprint": "^0.21.0",

@@ -19,7 +19,7 @@ export async function run(provider: NetworkProvider) {
         FortuneCookieNftCollection.createFromConfig(config, collectionCode)
     );
     
-    await randomTicketNftCollection.sendDeploy(provider.sender(), toNano(0.06));
+    await randomTicketNftCollection.sendDeploy(provider.sender(), toNano(0.05));
     
     await provider.waitForDeploy(randomTicketNftCollection.address, 20, 2000);
     
@@ -44,7 +44,8 @@ const testnetConfig: DeployConfig = {
                 royaltyFactor: 0,
                 royaltyBase: 0,
                 royaltyAddress: address("kQAomCdjy5XAE7u1HP294s6rL3suN4B_sPu3Hbx06OgNWqzH"),
-            }
+            },
+            minterAddress: address("kQAomCdjy5XAE7u1HP294s6rL3suN4B_sPu3Hbx06OgNWqzH"),
         }
     }
 }
@@ -62,7 +63,8 @@ const mainnetConfig: DeployConfig = {
                 royaltyFactor: 5,
                 royaltyBase: 10,
                 royaltyAddress: address("UQC_XWPfH4SgkIj3E59IdcPYIm8bVzWnhmgVEDVpzkFt3GhT"),
-            }
+            },
+            minterAddress: address("UQC_XWPfH4SgkIj3E59IdcPYIm8bVzWnhmgVEDVpzkFt3GhT"),
         }
     }
 }
