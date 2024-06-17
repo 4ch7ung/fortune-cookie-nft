@@ -131,8 +131,8 @@ slice calculate_nft_item_address(int wc, cell state_init) {
       return ();
     }
     ;; deploy new nft with autoincremented index
-    ;; mint_next#50932698 query_id:uint64 value:Grams nft_init_message:^NftInitMessage = MintPayload;
-    ;; nft_init_message#_ owner_addr:MsgAddress lower_bound:uint32 upper_bound:uint32 = NftInitMessage;
+    ;; mint_next#50932698 query_id:uint64 value:Grams nft_init_message:^NftInitMessage = MintNextPayload;
+    ;; nft_init_message#_ owner_addr:MsgAddress lower_bound:uint32 upper_bound:uint32 content:^Cell = NftInitMessage;
     if (op == op::mint_next()) {
       throw_unless(err::not_authorized, equal_slices(sender_address, owner_address) | equal_slices(sender_address, minter_address));
       var (value, nft_init_message) = extact_and_check_mint_message(in_msg_body);
@@ -143,7 +143,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
     }
 
     ;; mint#00000001 query_id:uint64 item_index:uint64 value:Grams nft_init_message:^NftInitMessage = MintPayload;
-    ;; nft_init_message#_ owner_addr:MsgAddress lower_bound:uint32 upper_bound:uint32 = NftInitMessage;
+    ;; nft_init_message#_ owner_addr:MsgAddress lower_bound:uint32 upper_bound:uint32 content:^Cell = NftInitMessage;
     if (op == 1) { ;; deploy new nft
       throw_unless(err::not_authorized, equal_slices(sender_address, owner_address) | equal_slices(sender_address, minter_address));
       int item_index = in_msg_body~load_uint(64);
@@ -161,6 +161,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
     }
     ;; batch#00000002 deploy_list:^(Hashmap 64 NftBatchInitMessage) = BatchPayload;
     ;; nft_batch_init_message#_ value:Grams nft_init_message:^NftInitMessage = NftBatchInitMessage;
+    ;; nft_init_message#_ owner_addr:MsgAddress lower_bound:uint32 upper_bound:uint32 content:^Cell = NftInitMessage;
     ;;
     ;; the keys of a hashmap are item indexes
     if (op == 2) { ;; batch deploy of new nfts

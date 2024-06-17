@@ -1,0 +1,157 @@
+#include "imports/stdlib.fc";
+#include "imports/params.fc";
+#include "op-codes.fc";
+
+;; Fortune Cookie NFT minter smart contract
+
+const err::not_owner = 401;
+const err::not_enough_value = 402;
+const err::unknown_op = 0xffff;
+
+const const::min_tons_for_storage = 50000000; ;; 0.05 TON
+const const::gas_fee = 15000000; ;; 0.015 TON
+
+;; storage scheme
+;; mint_config#_ price:Grams
+;;               lower_bound:uint32
+;;               upper_bound:uint32
+;;               content:^Cell
+;;               = MintConfig;
+;; storage#_ owner_address:MsgAddress
+;;           collection_address:MsgAddress
+;;           pass_value:Grams
+;;           mint_configA:^MintConfig
+;;           mint_configB:^MintConfig
+;;           mint_configC:^MintConfig
+;;           mint_configD:^MintConfig
+;;           = Storage;
+
+(slice, slice, int, cell, cell, cell, cell) load_data() inline {
+  var ds = get_data().begin_parse();
+  return (
+    ds~load_msg_addr(), ;; owner_address
+    ds~load_msg_addr(), ;; collection_address
+    ds~load_coins(),    ;; pass_value
+    ds~load_ref(),      ;; mint_configA
+    ds~load_ref(),      ;; mint_configB
+    ds~load_ref(),      ;; mint_configC
+    ds~load_ref()       ;; mint_configD
+  );
+}
+
+() save_data(slice owner_address, slice collection_address, int pass_value, cell mint_configA, cell mint_configB, cell mint_configC, cell mint_configD) impure inline {
+  set_data(begin_cell()
+    .store_slice(owner_address)
+    .store_slice(collection_address)
+    .store_coins(pass_value)
+    .store_ref(mint_configA)
+    .store_ref(mint_configB)
+    .store_ref(mint_configC)
+    .store_ref(mint_configD)
+    .end_cell()
+  );
+}
+
+(cell) mint_config(int price, int lower_bound, int upper_bound, cell content) inline {
+  return begin_cell()
+    .store_coins(price)
+    .store_uint(lower_bound, 32)
+    .store_uint(upper_bound, 32)
+    .store_ref(content)
+    .end_cell();
+}
+
+(int, int, int, cell) load_mint_config(cell mint_config) inline {
+  var ds = mint_config.begin_parse();
+  return (
+    ds~load_coins(), ;; price
+    ds~load_uint(32),  ;; lower_bound
+    ds~load_uint(32),  ;; upper_bound
+    ds~load_ref()    ;; content
+  );
+}
+
+;; deploy new nft with autoincremented index
+;; mint_next#50932698 query_id:uint64 value:Grams nft_init_message:^NftInitMessage = MintNextPayload;
+;; nft_init_message#_ owner_addr:MsgAddress lower_bound:uint32 upper_bound:uint32 content:^Cell = NftInitMessage;
+() send_mint_message(int query_id, slice sender_address, slice collection_address, int fwd_value, int nft_pass_value, int lower_bound, int upper_bound, cell content) impure inline {
+  var nft_init_message = begin_cell()
+    .store_slice(sender_address)
+    .store_uint(lower_bound, 32)
+    .store_uint(upper_bound, 32)
+    .store_ref(content)
+    .end_cell();
+  var msg = begin_cell()
+    .store_uint(0x18, 6)
+    .store_slice(collection_address)
+    .store_coins(fwd_value)
+    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+    .store_uint(op::mint_next(), 32)
+    .store_uint(query_id, 64)
+    .store_coins(nft_pass_value)
+    .store_ref(nft_init_message);
+  send_raw_message(msg.end_cell(), SEND_MODE_PAY_FEES_SEPARATELY);
+}
+
+() mint_with_config(int msg_value, cell mint_config, int query_id, slice sender_address, slice collection_address, int pass_value) impure inline_ref {
+  (int price, int lower_bound, int upper_bound, cell content) = load_mint_config(mint_config);
+  int min_value = price + pass_value + const::gas_fee;
+  throw_unless(err::not_enough_value, msg_value >= min_value);
+
+  int fwd_value = msg_value - price;
+
+  send_mint_message(query_id, sender_address, collection_address, fwd_value, pass_value, lower_bound, upper_bound, content);
+}
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+  if (in_msg_body.slice_empty?()) { ;; ignore empty messages
+      return ();
+  }
+  slice cs = in_msg_full.begin_parse();
+  int flags = cs~load_uint(4);
+
+  if (flags & 1) { ;; ignore all bounced messages
+      return ();
+  }
+  slice sender_address = cs~load_msg_addr();
+
+  int op = in_msg_body~load_uint(32);
+  int query_id = in_msg_body~load_uint(64);
+
+  (slice owner_address, slice collection_address, int pass_value, cell mint_configA, cell mint_configB, cell mint_configC, cell mint_configD) = load_data();
+
+  ;; everyone can mint if provide enough money
+  if (op == op::mint_collection_a()) {
+    mint_with_config(msg_value, mint_configA, query_id, sender_address, collection_address, pass_value);
+    return();
+  }
+  if (op == op::mint_collection_b()) {
+    mint_with_config(msg_value, mint_configB, query_id, sender_address, collection_address, pass_value);
+    return();
+  }
+  if (op == op::mint_collection_c()) {
+    mint_with_config(msg_value, mint_configC, query_id, sender_address, collection_address, pass_value);
+    return();
+  }
+  if (op == op::mint_collection_d()) {
+    mint_with_config(msg_value, mint_configD, query_id, sender_address, collection_address, pass_value);
+    return();
+  }
+
+  ;; only owner can collect profits, but need to leave some value for storage
+  if (op == op::collect_profits()) {
+    throw_unless(err::not_owner, equal_slice_bits(sender_address, owner_address));
+    throw_unless(err::not_enough_value, my_balance >= const::min_tons_for_storage);
+    send_raw_message(begin_cell()
+      .store_uint(0x18, 6)
+      .store_slice(owner_address)
+      .store_coins(my_balance - const::min_tons_for_storage)
+      .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+      .store_uint(0, 32)
+      .store_uint(query_id, 32)
+      .end_cell(), SEND_MODE_PAY_FEES_SEPARATELY);
+    return();
+  }
+
+  throw(err::unknown_op);
+}
