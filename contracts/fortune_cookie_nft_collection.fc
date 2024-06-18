@@ -230,3 +230,8 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
             .store_ref(individual_nft_content)
           .end_cell());
 }
+
+slice get_minter_address() method_id {
+  var (_, _, _, _, _, minter_address) = load_data();
+  return minter_address;
+}

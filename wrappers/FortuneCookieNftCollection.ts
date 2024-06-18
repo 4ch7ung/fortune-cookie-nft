@@ -66,6 +66,12 @@ export class FortuneCookieNftCollection implements Contract {
 
         return decodeOffChainContent(stack.readCell());
     }
+    
+    async getMinterAddress(provider: ContractProvider): Promise<Address> {
+        const { stack } = await provider.get('get_minter_address', []);
+
+        return stack.readAddress();
+    }
 
     //
     // Internal messages
@@ -138,7 +144,6 @@ export class FortuneCookieNftCollection implements Contract {
 
         return await provider.internal(sender, {
             value: toNano(0.05),
-            bounce: false,
             body: msgBody
         });
     }

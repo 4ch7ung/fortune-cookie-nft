@@ -420,6 +420,8 @@ describe('FortuneCookieNftCollection', () => {
         const res = await collection.sendChangeMinter(randomWallet.getSender(), newMinter.address);
         const res2 = await collection.sendChangeMinter(owner.getSender(), newMinter.address);
         const res3 = await collection.sendChangeMinter(newMinter.getSender(), randomWallet.address);
+
+        const newMinterAddress = await collection.getMinterAddress();
         
         // then
         
@@ -442,6 +444,8 @@ describe('FortuneCookieNftCollection', () => {
             success: false,
             exitCode: Errors.NotOwner
         });
+
+        expect(newMinterAddress).toEqualAddress(newMinter.address);
     });
 
     it('should send royalty params', async () => {
