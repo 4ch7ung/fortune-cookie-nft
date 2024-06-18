@@ -37,45 +37,53 @@ export class FortuneCookieNftCollection implements Contract {
             nextItemId: stack.readNumber(),
             collectionContent: decodeOffChainContent(stack.readCell()),
             ownerAddress: stack.readAddress()
-        }
+        };
     }
 
     async getNftAddressByIndex(provider: ContractProvider, index: number) {
         const { stack } = await provider.get('get_nft_address_by_index', [{
             type: 'int',
             value: BigInt(index)
-        }])
-        return stack.readAddress()
+        }]);
+        return stack.readAddress();
     }
 
     async getRoyaltyParams(provider: ContractProvider): Promise<RoyaltyParams> {
-        let { stack } = await provider.get('royalty_params', [])
+        const { stack } = await provider.get('royalty_params', []);
 
         return {
             royaltyFactor: stack.readNumber(),
             royaltyBase: stack.readNumber(),
             royaltyAddress: stack.readAddress()
-        }
+        };
     }
 
     async getNftContent(provider: ContractProvider, index: number, nftIndividualContent: Cell): Promise<string> {
-        let { stack } = await provider.get('get_nft_content', [
+        const { stack } = await provider.get('get_nft_content', [
             { type: 'int', value: BigInt(index) },
             { type: 'cell', cell: nftIndividualContent }
-        ])
+        ]);
 
-        return decodeOffChainContent(stack.readCell())
-    }
-
-    // Test methods
-
-    async sendExternalMessage(provider: ContractProvider) {
-        return await provider.external(beginCell().endCell());
+        return decodeOffChainContent(stack.readCell());
     }
 
     //
     // Internal messages
     //
+
+    async sendMintNext(
+        provider: ContractProvider, 
+        sender: Sender,
+        params: { queryId?: number, itemInput: FortuneCookieCollectionMintItemInput }
+    ) {
+        const nftStorage = params.itemInput.passAmount ?? toNano(nftMinStorage);
+        const msgBody = Queries.mintNext(params);
+        
+        return await provider.internal(sender, {
+            value: nftStorage + toNano(gasPerItem),
+            body: msgBody
+        });
+    }
 
     async sendDeployNewNft(
         provider: ContractProvider,
@@ -83,7 +91,7 @@ export class FortuneCookieNftCollection implements Contract {
         params: { queryId?: number, itemInput: FortuneCookieCollectionMintItemInput }
     ) {
         const nftStorage = params.itemInput.passAmount ?? toNano(nftMinStorage);
-        let msgBody = Queries.mint(params)
+        const msgBody = Queries.mint(params);
         
         return await provider.internal(sender, {
             value: nftStorage + toNano(gasPerItem),
@@ -98,7 +106,7 @@ export class FortuneCookieNftCollection implements Contract {
         params: { queryId?: number, items: FortuneCookieCollectionMintItemInput[] }
     ) {
         const value = toNano((nftMinStorage + gasPerItem) * params.items.length);
-        let msgBody = Queries.batchMint(params)
+        const msgBody = Queries.batchMint(params);
 
         return await provider.internal(sender, {
             value: value,
@@ -112,7 +120,21 @@ export class FortuneCookieNftCollection implements Contract {
         sender: Sender,
         newOwner: Address
     ) {
-        let msgBody = Queries.changeOwner({ newOwner })
+        const msgBody = Queries.changeOwner({ newOwner });
+
+        return await provider.internal(sender, {
+            value: toNano(0.05),
+            bounce: false,
+            body: msgBody
+        });
+    }
+
+    async sendChangeMinter(
+        provider: ContractProvider,
+        sender: Sender,
+        newMinter: Address
+    ) {
+        const msgBody = Queries.changeMinter({ newMinter });
 
         return await provider.internal(sender, {
             value: toNano(0.05),
@@ -125,7 +147,7 @@ export class FortuneCookieNftCollection implements Contract {
         provider: ContractProvider,
         sender: Sender
     ) {
-        let msgBody = Queries.getRoyaltyParams({})
+        const msgBody = Queries.getRoyaltyParams({});
 
         return await provider.internal(sender, {
             value: toNano(0.05),
@@ -140,7 +162,7 @@ export class FortuneCookieNftCollection implements Contract {
         sender: Sender,
         params: { queryId?: number,  collectionContent: string, commonContent: string,  royaltyParams: RoyaltyParams }
     ) {
-        let msgBody = Queries.editContent(params)
+        const msgBody = Queries.editContent(params);
 
         return await provider.internal(sender, {
             value: toNano(0.05),

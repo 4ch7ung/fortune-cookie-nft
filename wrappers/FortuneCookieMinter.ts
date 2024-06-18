@@ -109,12 +109,24 @@ export class FortuneCookieMinter implements Contract {
 
   async getPrices(provider: ContractProvider) {
     const { stack } = await provider.get('get_prices', []);
+
+    const gas = stack.readBigNumber();
+    const passValue = stack.readBigNumber();
+    const mintCollectionA = stack.readBigNumber();
+    const mintCollectionB = stack.readBigNumber();
+    const mintCollectionC = stack.readBigNumber();
+    const mintCollectionD = stack.readBigNumber();
     
     return {
-      mintCollectionA: stack.readBigNumber(),
-      mintCollectionB: stack.readBigNumber(),
-      mintCollectionC: stack.readBigNumber(),
-      mintCollectionD: stack.readBigNumber()
+      expenses: gas + passValue,
+      mintCollectionA,
+      mintCollectionB,
+      mintCollectionC,
+      mintCollectionD,
+      totalMintCollectionA: mintCollectionA + gas + passValue,
+      totalMintCollectionB: mintCollectionB + gas + passValue,
+      totalMintCollectionC: mintCollectionC + gas + passValue,
+      totalMintCollectionD: mintCollectionD + gas + passValue
     }
   }
 

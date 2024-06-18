@@ -57,7 +57,7 @@ describe('FortuneCookieNftItem', () => {
         nftItemConfig = defaultItemConfig(owner.address, fakeCollection.address);
         
         nftItem = blockchain.openContract(
-            FortuneCookieNftItem.createFromConfig(nftItemConfig.index, nftItemConfig.collectionAddress, itemCode)
+            FortuneCookieNftItem.createFromConfig(nftItemConfig.index!, nftItemConfig.collectionAddress, itemCode)
         );
         
         const deployResult = await nftItem.sendDeploy(
@@ -96,7 +96,7 @@ describe('FortuneCookieNftItem', () => {
         // given
 
         nftItem = blockchain.openContract(
-            FortuneCookieNftItem.createFromConfig(nftItemConfig.index, deployer.address, itemCode)
+            FortuneCookieNftItem.createFromConfig(nftItemConfig.index!, deployer.address, itemCode)
         );
 
         const deployResult = await nftItem.sendTopUp(
@@ -122,7 +122,7 @@ describe('FortuneCookieNftItem', () => {
         // given
 
         nftItem = blockchain.openContract(
-            FortuneCookieNftItem.createFromConfig(nftItemConfig.index, deployer.address, itemCode)
+            FortuneCookieNftItem.createFromConfig(nftItemConfig.index!, deployer.address, itemCode)
         );
 
         const deployResult = await nftItem.sendTopUp(

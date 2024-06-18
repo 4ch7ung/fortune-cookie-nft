@@ -89,7 +89,7 @@ export const OperationCodes = {
 
 export type FortuneCookieCollectionMintItemInput = {
     passAmount?: bigint
-    index: number
+    index?: number
     ownerAddress: Address
     lowerBound: number
     upperBound: number
@@ -101,7 +101,28 @@ export const Queries = {
         let msgBody = beginCell()
             .storeUint(OperationCodes.Mint, 32)
             .storeUint(params.queryId || 0, 64)
-            .storeUint(params.itemInput.index, 64)
+            .storeUint(params.itemInput.index!, 64)
+            .storeCoins(params.itemInput.passAmount ?? toNano(nftMinStorage));
+
+        let itemContent = beginCell()
+            .storeBuffer(Buffer.from(params.itemInput.content))
+            .endCell();
+
+        let nftItemMessage = beginCell()
+            .storeAddress(params.itemInput.ownerAddress)
+            .storeUint(params.itemInput.lowerBound, 32)
+            .storeUint(params.itemInput.upperBound, 32)
+            .storeRef(itemContent)
+            .endCell();
+
+        msgBody.storeRef(nftItemMessage);
+
+        return msgBody.endCell();
+    },
+    mintNext: (params: { queryId?: number, itemInput: FortuneCookieCollectionMintItemInput }) => {
+        let msgBody = beginCell()
+            .storeUint(OperationCodes.MintNext, 32)
+            .storeUint(params.queryId || 0, 64)
             .storeCoins(params.itemInput.passAmount ?? toNano(nftMinStorage));
 
         let itemContent = beginCell()
@@ -142,7 +163,7 @@ export const Queries = {
         }
 
         for (let item of params.items) {
-            dict.set(item.index, itemsFactory(item));
+            dict.set(item.index!, itemsFactory(item));
         }
 
         let msgBody = beginCell()
@@ -168,6 +189,13 @@ export const Queries = {
             .storeUint(OperationCodes.ChangeOwner, 32)
             .storeUint(params.queryId || 0, 64)
             .storeAddress(params.newOwner);
+        return msgBody.endCell();
+    },
+    changeMinter: (params: { queryId?: number, newMinter: Address }) => {
+        let msgBody = beginCell()
+            .storeUint(OperationCodes.ChangeMinter, 32)
+            .storeUint(params.queryId || 0, 64)
+            .storeAddress(params.newMinter);
         return msgBody.endCell();
     },
     getRoyaltyParams: (params: { queryId?: number }) => {

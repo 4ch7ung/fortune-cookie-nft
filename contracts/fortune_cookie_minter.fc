@@ -156,11 +156,11 @@ const const::gas_fee = 15000000; ;; 0.015 TON
   throw(err::unknown_op);
 }
 
-(int, int, int, int) get_prices() method_id {
-  (_, _, _, cell mint_configA, cell mint_configB, cell mint_configC, cell mint_configD) = load_data();
+(int, int, int, int, int, int) get_prices() method_id {
+  (_, _, int pass_value, cell mint_configA, cell mint_configB, cell mint_configC, cell mint_configD) = load_data();
   (int priceA, _, _, _) = load_mint_config(mint_configA);
   (int priceB, _, _, _) = load_mint_config(mint_configB);
   (int priceC, _, _, _) = load_mint_config(mint_configC);
   (int priceD, _, _, _) = load_mint_config(mint_configD);
-  return (priceA, priceB, priceC, priceD);
+  return (const::gas_fee, pass_value, priceA, priceB, priceC, priceD);
 }

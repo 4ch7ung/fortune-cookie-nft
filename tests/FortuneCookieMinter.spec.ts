@@ -1,6 +1,5 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Address, Cell, CommonMessageInfoInternal, beginCell, contractAddress, toNano } from '@ton/core';
-import { FortuneCookieNftCollection } from '../wrappers/FortuneCookieNftCollection';
+import { Cell, toNano } from '@ton/core';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 import { MintCollection, FortuneCookieMinter } from '../wrappers/FortuneCookieMinter';
@@ -62,7 +61,7 @@ describe('FortuneCookieMinter', () => {
     ownerWallet = await blockchain.treasury("ownerWallet");
     senderWallet = await blockchain.treasury("senderWallet");
     
-    minter = await blockchain.openContract(
+    minter = blockchain.openContract(
       FortuneCookieMinter.createFromConfig({
         ownerAddress: ownerWallet.address,
         collectionAddress: mockCollectionContract.address,
