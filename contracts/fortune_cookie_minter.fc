@@ -145,7 +145,7 @@ const const::gas_fee = 15000000; ;; 0.015 TON
     send_raw_message(begin_cell()
       .store_uint(0x18, 6)
       .store_slice(owner_address)
-      .store_coins(my_balance - const::min_tons_for_storage)
+      .store_coins(my_balance + msg_value - const::min_tons_for_storage)
       .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
       .store_uint(0, 32)
       .store_uint(query_id, 32)
@@ -154,4 +154,13 @@ const const::gas_fee = 15000000; ;; 0.015 TON
   }
 
   throw(err::unknown_op);
+}
+
+(int, int, int, int) get_prices() method_id {
+  (_, _, _, cell mint_configA, cell mint_configB, cell mint_configC, cell mint_configD) = load_data();
+  (int priceA, _, _, _) = load_mint_config(mint_configA);
+  (int priceB, _, _, _) = load_mint_config(mint_configB);
+  (int priceC, _, _, _) = load_mint_config(mint_configC);
+  (int priceD, _, _, _) = load_mint_config(mint_configD);
+  return (priceA, priceB, priceC, priceD);
 }

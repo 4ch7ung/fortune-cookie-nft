@@ -82,7 +82,9 @@ export const OperationCodes = {
     ChangeOwner: 3,
     EditContent: 4,
     GetRoyaltyParams: 0x693d3950,
-    GetRoyaltyParamsResponse: 0xa8cb00ad
+    GetRoyaltyParamsResponse: 0xa8cb00ad,
+    ChangeMinter: 0xb73b8ac5,
+    MintNext: 0x50932698,
 }
 
 export type FortuneCookieCollectionMintItemInput = {
