@@ -75,6 +75,17 @@ describe('FortuneCookieMinter', () => {
     
     await minter.sendDeploy(ownerWallet.getSender(), toNano(0.05));
   });
+
+  it('should return owner address', async () => {
+    
+    // when 
+    
+    const ownerAddress = await minter.getOwnerAddress();
+    
+    // then
+    
+    expect(ownerAddress).toEqualAddress(ownerWallet.address);
+  });
   
   it('should return price values', async () => {
     

@@ -190,5 +190,16 @@ export class FortuneCookieMinter implements Contract {
       sendMode: SendMode.PAY_GAS_SEPARATELY
     });
   }
+
+  async getOwnerAddress(provider: ContractProvider): Promise<Address | null> {
+    const { state } = await provider.getState();
+    if (state.type !== 'active') {
+      return null;
+    }
+
+    const data = state.data!;
+    const reader = Cell.fromBoc(data)[0].beginParse();
   
+    return reader.loadAddress();
+  }
 }
